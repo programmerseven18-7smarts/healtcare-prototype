@@ -16,6 +16,8 @@ interface MobileUploadModalProps {
   uploading: boolean;
   processing: boolean;
   error: string;
+  locationReady: boolean;
+  locationState: 'loading' | 'ready' | 'error';
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   cameraInputRef: React.RefObject<HTMLInputElement | null>;
   onClose: () => void;
@@ -25,6 +27,7 @@ interface MobileUploadModalProps {
   onNotesChange: (value: string) => void;
   onPickCamera: () => void;
   onPickGallery: () => void;
+  onRetryLocation: () => void;
   onCameraChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onGalleryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
@@ -41,6 +44,8 @@ export function MobileUploadModal({
   uploading,
   processing,
   error,
+  locationReady,
+  locationState,
   fileInputRef,
   cameraInputRef,
   onClose,
@@ -50,6 +55,7 @@ export function MobileUploadModal({
   onNotesChange,
   onPickCamera,
   onPickGallery,
+  onRetryLocation,
   onCameraChange,
   onGalleryChange,
   onSubmit,
@@ -111,7 +117,11 @@ export function MobileUploadModal({
           <button
             type="button"
             onClick={onPickCamera}
-            className="block w-full overflow-hidden rounded-[1.75rem] border border-dashed border-blue-200 bg-[linear-gradient(180deg,#f9fbff_0%,#eef4ff_100%)] shadow-sm"
+            disabled={!locationReady || processing}
+            className={cn(
+              'block w-full overflow-hidden rounded-[1.75rem] border border-dashed border-blue-200 bg-[linear-gradient(180deg,#f9fbff_0%,#eef4ff_100%)] shadow-sm',
+              !locationReady || processing ? 'cursor-not-allowed opacity-55' : ''
+            )}
           >
             {previewUrl ? (
               <img src={previewUrl} alt="Preview foto" className="h-60 w-full object-contain bg-slate-100" />
@@ -130,7 +140,11 @@ export function MobileUploadModal({
             <button
               type="button"
               onClick={onPickCamera}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#4f8dfc,#2563eb)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_24px_rgba(37,99,235,0.24)]"
+              disabled={!locationReady || processing}
+              className={cn(
+                'inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#4f8dfc,#2563eb)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_24px_rgba(37,99,235,0.24)]',
+                !locationReady || processing ? 'cursor-not-allowed opacity-55' : ''
+              )}
             >
               <Camera className="h-4 w-4" />
               Ambil Foto
@@ -138,7 +152,11 @@ export function MobileUploadModal({
             <button
               type="button"
               onClick={onPickGallery}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200"
+              disabled={!locationReady || processing}
+              className={cn(
+                'inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200',
+                !locationReady || processing ? 'cursor-not-allowed opacity-55' : ''
+              )}
             >
               <ImageIcon className="h-4 w-4" />
               Galeri
@@ -150,7 +168,16 @@ export function MobileUploadModal({
             <div className="space-y-3 text-sm text-slate-700">
               <div className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 text-[var(--brand)]" />
-                <span>{location}</span>
+                <span className="min-w-0 flex-1">{location}</span>
+                {locationState === 'error' && (
+                  <button
+                    type="button"
+                    onClick={onRetryLocation}
+                    className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"
+                  >
+                    Coba lagi
+                  </button>
+                )}
               </div>
               <div className="flex items-start gap-2">
                 <ChevronRight className="mt-0.5 h-4 w-4 rotate-90 text-[var(--brand)]" />

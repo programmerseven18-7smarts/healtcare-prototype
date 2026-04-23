@@ -16,6 +16,8 @@ interface DesktopUploadModalProps {
   uploading: boolean;
   processing: boolean;
   error: string;
+  locationReady: boolean;
+  locationState: 'loading' | 'ready' | 'error';
   selectedRsud?: RSUD;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   cameraInputRef: React.RefObject<HTMLInputElement | null>;
@@ -25,6 +27,7 @@ interface DesktopUploadModalProps {
   onNotesChange: (value: string) => void;
   onPickCamera: () => void;
   onPickGallery: () => void;
+  onRetryLocation: () => void;
   onCameraChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onGalleryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBack: () => void;
@@ -43,6 +46,8 @@ export function DesktopUploadModal({
   uploading,
   processing,
   error,
+  locationReady,
+  locationState,
   selectedRsud,
   fileInputRef,
   cameraInputRef,
@@ -52,6 +57,7 @@ export function DesktopUploadModal({
   onNotesChange,
   onPickCamera,
   onPickGallery,
+  onRetryLocation,
   onCameraChange,
   onGalleryChange,
   onBack,
@@ -147,7 +153,11 @@ export function DesktopUploadModal({
                 <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
                   <button
                     onClick={onPickCamera}
-                    className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#5b92ff,#2563eb_60%,#1d4ed8)] p-6 text-left text-white shadow-[0_18px_35px_rgba(37,99,235,0.24)] transition hover:-translate-y-0.5"
+                    disabled={!locationReady || processing}
+                    className={cn(
+                      'relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#5b92ff,#2563eb_60%,#1d4ed8)] p-6 text-left text-white shadow-[0_18px_35px_rgba(37,99,235,0.24)] transition',
+                      locationReady && !processing ? 'hover:-translate-y-0.5' : 'cursor-not-allowed opacity-55'
+                    )}
                   >
                     <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
                     <div className="relative flex min-h-52 flex-col justify-between">
@@ -166,7 +176,11 @@ export function DesktopUploadModal({
                   <div className="space-y-4">
                     <button
                       onClick={onPickGallery}
-                      className="flex min-h-32 w-full flex-col items-start justify-between rounded-[1.75rem] border border-[var(--brand)] bg-blue-50 p-5 text-left text-[var(--brand)] transition hover:bg-blue-100"
+                      disabled={!locationReady || processing}
+                      className={cn(
+                        'flex min-h-32 w-full flex-col items-start justify-between rounded-[1.75rem] border border-[var(--brand)] bg-blue-50 p-5 text-left text-[var(--brand)] transition',
+                        locationReady && !processing ? 'hover:bg-blue-100' : 'cursor-not-allowed opacity-55'
+                      )}
                     >
                       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
                         <Upload className="h-5 w-5" />
@@ -209,7 +223,18 @@ export function DesktopUploadModal({
                   </div>
                   <div className="rounded-2xl bg-white p-4 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lokasi</p>
-                    <p className="mt-2 text-sm font-medium text-slate-900">{location}</p>
+                    <div className="mt-2 flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{location}</p>
+                      {locationState === 'error' && (
+                        <button
+                          type="button"
+                          onClick={onRetryLocation}
+                          className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                        >
+                          Coba lagi
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 

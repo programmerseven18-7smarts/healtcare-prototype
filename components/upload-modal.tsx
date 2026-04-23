@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Milestone, RSUD } from '@/lib/data-model';
 import { useDisplayMode } from './display-mode-context';
 import { DesktopUploadModal } from './desktop-upload-modal';
@@ -15,6 +15,7 @@ interface UploadModalProps {
 }
 
 type Step = 'form' | 'preview' | 'success';
+type LocationState = 'loading' | 'ready' | 'error';
 
 export function UploadModal({
   rsudList,
@@ -29,6 +30,7 @@ export function UploadModal({
   const [milestone, setMilestone] = useState<Milestone>(defaultMilestone ?? 'Site Preparation');
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState('Mendapatkan lokasi...');
+  const [locationState, setLocationState] = useState<LocationState>('loading');
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -41,22 +43,39 @@ export function UploadModal({
     timeStyle: 'short',
   });
 
-  const getLocation = useCallback(async () => {
+  const requestLocation = useCallback(async () => {
+    setLocationState('loading');
+    setLocation('Mendapatkan lokasi...');
+
     if (!navigator.geolocation) {
-      return 'Geolokasi tidak didukung';
+      setLocation('Geolokasi tidak didukung');
+      setLocationState('error');
+      return;
     }
 
-    return await new Promise<string>((resolve) => {
+    await new Promise<void>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          resolve(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+          setLocation(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+          setLocationState('ready');
+          resolve();
         },
-        () => {
-          resolve('Izin lokasi ditolak');
+        (geoError) => {
+          const message =
+            geoError.code === geoError.PERMISSION_DENIED
+              ? 'Izin lokasi ditolak'
+              : 'Lokasi belum bisa didapat';
+          setLocation(message);
+          setLocationState('error');
+          resolve();
         }
       );
     });
   }, []);
+
+  useEffect(() => {
+    requestLocation();
+  }, [requestLocation]);
 
   const stampPhotoWithLocation = useCallback(async (sourceFile: File, locationLabel: string, timeLabel: string) => {
     const imageUrl = URL.createObjectURL(sourceFile);
@@ -127,13 +146,16 @@ export function UploadModal({
   }, []);
 
   const handleFileSelect = useCallback(async (selected: File) => {
+    if (locationState !== 'ready') {
+      setError('Lokasi harus berhasil didapat sebelum memilih foto.');
+      return;
+    }
+
     setProcessing(true);
     setError('');
 
     try {
-      const resolvedLocation = await getLocation();
-      setLocation(resolvedLocation);
-      const stampedFile = await stampPhotoWithLocation(selected, resolvedLocation, timestamp);
+      const stampedFile = await stampPhotoWithLocation(selected, location, timestamp);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setFile(stampedFile);
       setPreviewUrl(URL.createObjectURL(stampedFile));
@@ -143,12 +165,20 @@ export function UploadModal({
     } finally {
       setProcessing(false);
     }
-  }, [getLocation, previewUrl, stampPhotoWithLocation]);
+  }, [location, locationState, previewUrl, stampPhotoWithLocation, timestamp]);
 
   const handleInputPick =
     (source: 'camera' | 'gallery') => () => {
       if (!rsudId || !milestone) {
         setError('Pilih RSUD dan Milestone terlebih dahulu.');
+        return;
+      }
+      if (locationState !== 'ready') {
+        setError(
+          locationState === 'loading'
+            ? 'Tunggu sampai lokasi berhasil didapat sebelum memilih foto.'
+            : 'Lokasi harus aktif. Izinkan akses lokasi lalu coba lagi.'
+        );
         return;
       }
       setError('');
@@ -162,6 +192,10 @@ export function UploadModal({
   const handleUpload = async () => {
     if (!file || !rsudId || !milestone) {
       setError('Pilih RSUD, Milestone, dan Foto terlebih dahulu.');
+      return;
+    }
+    if (locationState !== 'ready') {
+      setError('Lokasi harus berhasil didapat sebelum upload.');
       return;
     }
     setUploading(true);
@@ -214,6 +248,8 @@ export function UploadModal({
     uploading,
     processing,
     error,
+    locationReady: locationState === 'ready',
+    locationState,
     selectedRsud,
     fileInputRef,
     cameraInputRef,
@@ -223,6 +259,7 @@ export function UploadModal({
     onNotesChange: setNotes,
     onPickCamera: handleInputPick('camera'),
     onPickGallery: handleInputPick('gallery'),
+    onRetryLocation: requestLocation,
     onCameraChange: (e: React.ChangeEvent<HTMLInputElement>) => {
       const selected = e.target.files?.[0];
       if (selected) handleFileSelect(selected);
