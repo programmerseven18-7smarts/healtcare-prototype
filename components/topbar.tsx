@@ -15,7 +15,9 @@ export function Topbar({ onMenuClick, title, displayMode, onDisplayModeChange }:
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b border-[var(--border-color)] bg-white/80 backdrop-blur px-4 lg:px-6">
       <button
         onClick={onMenuClick}
-        className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] lg:hidden"
+        className={`rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] ${
+          displayMode === 'desktop' ? 'lg:hidden' : ''
+        }`}
         aria-label="Buka menu"
       >
         <Menu className="h-5 w-5" />

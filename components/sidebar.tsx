@@ -25,25 +25,28 @@ const navItems = [
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  variant?: 'responsive' | 'drawer';
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, variant = 'responsive' }: SidebarProps) {
   const pathname = usePathname();
   const displayMode = getDisplayModeFromPathname(pathname);
+  const staticOnLarge = variant === 'responsive';
 
   return (
     <>
       {/* Overlay for mobile */}
       {open && (
         <div
-          className="fixed inset-0 z-20 bg-foreground/20 lg:hidden"
+          className={cn('fixed inset-0 z-20 bg-foreground/20', staticOnLarge && 'lg:hidden')}
           onClick={onClose}
         />
       )}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-[var(--sidebar-bg)] shadow-lg transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto',
+          'fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-[var(--sidebar-bg)] shadow-lg transition-transform duration-300',
+          staticOnLarge && 'lg:static lg:z-auto lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -58,7 +61,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <button
             onClick={onClose}
-            className="ml-auto rounded-md p-1 text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] lg:hidden"
+            className={cn(
+              'ml-auto rounded-md p-1 text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)]',
+              staticOnLarge && 'lg:hidden'
+            )}
             aria-label="Tutup sidebar"
           >
             <X className="h-4 w-4" />

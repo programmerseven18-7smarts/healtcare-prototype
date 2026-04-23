@@ -18,10 +18,28 @@ export function AppShell({ title, children }: AppShellProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileFrameScale, setMobileFrameScale] = useState(1);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const displayMode: DisplayMode = getDisplayModeFromPathname(pathname);
+  const usePhoneLayout = displayMode === 'mobile' && isCompactViewport;
 
   useEffect(() => {
-    if (displayMode !== 'mobile') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+
+    const syncViewport = () => setIsCompactViewport(mediaQuery.matches);
+    syncViewport();
+
+    mediaQuery.addEventListener('change', syncViewport);
+    return () => mediaQuery.removeEventListener('change', syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isCompactViewport && displayMode === 'desktop') {
+      router.replace(withDisplayMode(pathname, 'mobile'));
+    }
+  }, [displayMode, isCompactViewport, pathname, router]);
+
+  useEffect(() => {
+    if (displayMode !== 'mobile' || isCompactViewport) return;
 
     const baseDpr = window.devicePixelRatio || 1;
     const frameWidth = 393;
@@ -56,7 +74,7 @@ export function AppShell({ title, children }: AppShellProps) {
       window.visualViewport?.removeEventListener('resize', updateScale);
       window.visualViewport?.removeEventListener('scroll', updateScale);
     };
-  }, [displayMode]);
+  }, [displayMode, isCompactViewport]);
 
   const handleDisplayModeChange = (mode: DisplayMode) => {
     if (mode === 'mobile') {
@@ -68,7 +86,11 @@ export function AppShell({ title, children }: AppShellProps) {
   return (
     <DisplayModeProvider displayMode={displayMode}>
       <div className="flex h-screen overflow-hidden bg-[var(--bg-page)]">
-        {displayMode === 'desktop' && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          variant={displayMode === 'desktop' ? 'responsive' : 'drawer'}
+        />
         <div className="flex flex-1 flex-col overflow-hidden">
           <Topbar
             onMenuClick={() => setSidebarOpen(true)}
@@ -78,12 +100,12 @@ export function AppShell({ title, children }: AppShellProps) {
           />
           <main
             className={`flex-1 overflow-y-auto ${
-              displayMode === 'desktop'
+              displayMode === 'desktop' || usePhoneLayout
                 ? 'p-4 lg:p-6'
                 : 'bg-[linear-gradient(180deg,#eef4ff_0%,#f8fbff_100%)] px-3 py-4 sm:px-5 sm:py-6'
             }`}
           >
-            {displayMode === 'desktop' ? (
+            {displayMode === 'desktop' || usePhoneLayout ? (
               children
             ) : (
               <div className="mx-auto flex min-h-full w-full items-center justify-center overflow-hidden">
