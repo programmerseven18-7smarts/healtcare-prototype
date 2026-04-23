@@ -1,9 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { get, put } from '@vercel/blob';
 import type { AppData } from './data-model';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE_PATH = path.join(DATA_DIR, 'app-data.json');
+const BLOB_DATA_PATH = 'data/app-data.json';
 
 const DEFAULT_DATA: AppData = {
   rsudList: [
@@ -52,21 +54,76 @@ const DEFAULT_DATA: AppData = {
 };
 
 export async function loadData(): Promise<AppData> {
+  if (hasBlobToken()) {
+    try {
+      const blob = await get(BLOB_DATA_PATH, { access: 'private', useCache: false });
+      if (blob?.statusCode === 200) {
+        const raw = await streamToText(blob.stream);
+        return mergeDefaultData(JSON.parse(raw) as AppData);
+      }
+    } catch (error) {
+      console.error('Blob data load error:', error);
+    }
+  }
+
   try {
     const raw = await readFile(DATA_FILE_PATH, 'utf8');
-    const data = JSON.parse(raw) as AppData;
-    // Merge in case new default RSUDs were added
-    const existingIds = new Set(data.rsudList.map((r) => r.id));
-    for (const r of DEFAULT_DATA.rsudList) {
-      if (!existingIds.has(r.id)) data.rsudList.push(r);
-    }
-    return data;
+    return mergeDefaultData(JSON.parse(raw) as AppData);
   } catch {
-    return { ...DEFAULT_DATA };
+    return createDefaultData();
   }
 }
 
 export async function saveData(data: AppData): Promise<void> {
+  if (hasBlobToken()) {
+    await put(BLOB_DATA_PATH, JSON.stringify(data, null, 2), {
+      access: 'private',
+      allowOverwrite: true,
+      contentType: 'application/json',
+    });
+    return;
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function hasBlobToken() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+function createDefaultData(): AppData {
+  return {
+    rsudList: DEFAULT_DATA.rsudList.map((rsud) => ({ ...rsud })),
+    photos: [],
+  };
+}
+
+function mergeDefaultData(data: AppData): AppData {
+  const merged: AppData = {
+    rsudList: Array.isArray(data.rsudList) ? [...data.rsudList] : [],
+    photos: Array.isArray(data.photos) ? [...data.photos] : [],
+  };
+
+  const existingIds = new Set(merged.rsudList.map((r) => r.id));
+  for (const r of DEFAULT_DATA.rsudList) {
+    if (!existingIds.has(r.id)) merged.rsudList.push({ ...r });
+  }
+
+  return merged;
+}
+
+async function streamToText(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    result += decoder.decode(value, { stream: true });
+  }
+
+  result += decoder.decode();
+  return result;
 }
