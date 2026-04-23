@@ -16,6 +16,8 @@ interface UploadModalProps {
 
 type Step = 'form' | 'preview' | 'success';
 type LocationState = 'loading' | 'ready' | 'error';
+const MAX_UPLOAD_IMAGE_DIMENSION = 1600;
+const UPLOAD_IMAGE_QUALITY = 0.72;
 
 export function UploadModal({
   rsudList,
@@ -88,15 +90,21 @@ export function UploadModal({
         img.src = imageUrl;
       });
 
+      const scale = Math.min(
+        1,
+        MAX_UPLOAD_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight)
+      );
       const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
         throw new Error('Canvas tidak tersedia');
       }
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
       const paddingX = Math.max(36, Math.round(canvas.width * 0.045));
@@ -129,15 +137,14 @@ export function UploadModal({
             if (blob) resolve(blob);
             else reject(new Error('Gagal membuat foto bertag lokasi'));
           },
-          sourceFile.type || 'image/jpeg',
-          0.95
+          'image/jpeg',
+          UPLOAD_IMAGE_QUALITY
         );
       });
 
-      const extension = sourceFile.name.includes('.') ? sourceFile.name.split('.').pop() : 'jpg';
       return new File(
         [stampedBlob],
-        `${sourceFile.name.replace(/\.[^/.]+$/, '')}_taglokasi.${extension}`,
+        `${sourceFile.name.replace(/\.[^/.]+$/, '')}_taglokasi.jpg`,
         { type: stampedBlob.type }
       );
     } finally {
