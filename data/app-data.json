@@ -1,0 +1,57 @@
+{
+  "rsudList": [
+    {
+      "id": "rsud-1",
+      "name": "RSUD Dr. Soetomo",
+      "kota": "Surabaya",
+      "provinsi": "Jawa Timur",
+      "status": "Aktif",
+      "progress": 65
+    },
+    {
+      "id": "rsud-2",
+      "name": "RSUD Tarakan",
+      "kota": "Jakarta",
+      "provinsi": "DKI Jakarta",
+      "status": "Aktif",
+      "progress": 40
+    },
+    {
+      "id": "rsud-3",
+      "name": "RSUD Arifin Achmad",
+      "kota": "Pekanbaru",
+      "provinsi": "Riau",
+      "status": "Selesai",
+      "progress": 100
+    },
+    {
+      "id": "rsud-4",
+      "name": "RSUD Abdul Wahab Sjahranie",
+      "kota": "Samarinda",
+      "provinsi": "Kalimantan Timur",
+      "status": "Pending",
+      "progress": 10
+    },
+    {
+      "id": "rsud-5",
+      "name": "RSUD Dr. Wahidin Sudirohusodo",
+      "kota": "Makassar",
+      "provinsi": "Sulawesi Selatan",
+      "status": "Aktif",
+      "progress": 55
+    }
+  ],
+  "photos": [
+    {
+      "id": "photo-1776934394951",
+      "rsudId": "rsud-1",
+      "milestone": "Site Preparation",
+      "name": "unnamed_taglokasi.webp",
+      "date": "2026-04-23",
+      "location": "-7.54873, 110.60451",
+      "notes": "",
+      "blobUrl": "/uploads/rsud-1/Site Preparation/1776934394951_unnamed_taglokasi.webp",
+      "uploadedAt": "2026-04-23T08:53:14.964Z"
+    }
+  ]
+}
