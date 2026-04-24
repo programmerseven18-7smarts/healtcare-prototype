@@ -13,6 +13,7 @@ import {
 import { AppShell } from '@/components/app-shell';
 import { loadData } from '@/lib/data-store';
 import { MILESTONES, type Milestone } from '@/lib/data-model';
+import { isMilestoneComplete } from '@/lib/progress';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -33,14 +34,6 @@ const MILESTONE_DESC: Record<Milestone, string> = {
   'Commissioning': 'Pengujian akhir dan serah terima sistem',
 };
 
-const MILESTONE_THRESHOLDS: Record<Milestone, number> = {
-  'Site Preparation': 25,
-  'Material on Site ( CDD )': 40,
-  'Installation': 50,
-  'Training': 75,
-  'Commissioning': 100,
-};
-
 export default async function MilestonePage() {
   const { rsudList, photos } = await loadData();
 
@@ -50,7 +43,7 @@ export default async function MilestonePage() {
         {MILESTONES.map((milestone) => {
           const milestonePhotos = photos.filter((p) => p.milestone === milestone);
           const rsudWithMilestone = rsudList.filter(
-            (r) => r.progress >= MILESTONE_THRESHOLDS[milestone]
+            (r) => isMilestoneComplete(r.id, milestone, photos)
           );
           const MilestoneIcon = MILESTONE_ICONS[milestone];
 

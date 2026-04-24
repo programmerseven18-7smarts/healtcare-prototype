@@ -3,18 +3,11 @@ import Link from 'next/link';
 import { ArrowLeft, Images, CheckSquare2, MapPin } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
 import { loadData } from '@/lib/data-store';
-import { MILESTONES, type Milestone } from '@/lib/data-model';
+import { MILESTONES } from '@/lib/data-model';
+import { withDerivedProgress } from '@/lib/progress';
 import { MilestoneTabsClient } from './milestone-tabs-client';
 
 export const dynamic = 'force-dynamic';
-
-const MILESTONE_PROGRESS: Record<Milestone, number> = {
-  'Site Preparation': 25,
-  'Material on Site ( CDD )': 40,
-  'Installation': 50,
-  'Training': 75,
-  'Commissioning': 100,
-};
 
 export default async function RSUDDetailPage({
   params,
@@ -22,7 +15,9 @@ export default async function RSUDDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { rsudList, photos } = await loadData();
+  const data = await loadData();
+  const { photos } = data;
+  const rsudList = withDerivedProgress(data.rsudList, photos);
   const rsud = rsudList.find((r) => r.id === id);
   if (!rsud) notFound();
 
@@ -32,8 +27,7 @@ export default async function RSUDDetailPage({
   const milestoneData = MILESTONES.map((m) => ({
     milestone: m,
     photos: rsudPhotos.filter((p) => p.milestone === m),
-    progressThreshold: MILESTONE_PROGRESS[m],
-    done: rsud.progress >= MILESTONE_PROGRESS[m],
+    done: rsudPhotos.some((p) => p.milestone === m),
   }));
 
   return (

@@ -1,12 +1,14 @@
 import { AppShell } from '@/components/app-shell';
 import { DashboardClient } from '@/components/dashboard-client';
 import { loadData } from '@/lib/data-store';
+import { withDerivedProgress } from '@/lib/progress';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardModePage() {
   const data = await loadData();
-  const { rsudList, photos } = data;
+  const { photos } = data;
+  const rsudList = withDerivedProgress(data.rsudList, photos);
 
   const aktif = rsudList.filter((r) => r.status === 'Aktif').length;
   const selesai = rsudList.filter((r) => r.status === 'Selesai').length;

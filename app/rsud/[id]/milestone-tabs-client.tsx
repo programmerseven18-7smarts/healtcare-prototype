@@ -11,7 +11,6 @@ import type { RSUD, Photo, Milestone } from '@/lib/data-store';
 interface MilestoneEntry {
   milestone: Milestone;
   photos: Photo[];
-  progressThreshold: number;
   done: boolean;
 }
 
