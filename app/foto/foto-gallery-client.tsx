@@ -11,7 +11,7 @@ import {
   Trash2,
   AlertTriangle,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { UploadModal } from '@/components/upload-modal';
 import { useDisplayMode } from '@/components/display-mode-context';
 import {
@@ -45,6 +45,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
   const [filterMilestone, setFilterMilestone] = useState(defaultMilestoneFilter ?? '');
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { displayMode } = useDisplayMode();
 
   // Both filters must be set for the page to show results
@@ -77,6 +78,27 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     return location;
   };
 
+  const syncFiltersToUrl = (nextRsud: string, nextMilestone: string) => {
+    const params = new URLSearchParams();
+    if (nextRsud) params.set('rsud', nextRsud);
+    if (nextMilestone) params.set('milestone', nextMilestone);
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const updateRsudFilter = (value: string) => {
+    setFilterRsud(value);
+    setUploadValidationMsg('');
+    syncFiltersToUrl(value, filterMilestone);
+  };
+
+  const updateMilestoneFilter = (value: string) => {
+    setFilterMilestone(value);
+    setUploadValidationMsg('');
+    syncFiltersToUrl(filterRsud, value);
+  };
+
   const handleDelete = async (photo: Photo) => {
     setDeleting(photo.id);
     try {
@@ -95,9 +117,6 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
    *   immediately without waiting for a server refresh.
    * - Does NOT overwrite the active filters the user already had selected.
    * - Only if no filters were set before upload may it auto-assign filters.
-   * - Triggers router.refresh() after local state is settled so the server
-   *   snapshot eventually catches up without clobbering the optimistic state
-   *   (the useEffect on `photos` will merge the server list in).
    */
   const handleUploadSuccess = (photo: Photo) => {
     setGalleryPhotos((current) => [photo, ...current.filter((item) => item.id !== photo.id)]);
@@ -106,12 +125,12 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
       // No filters were active — auto-navigate to the uploaded photo's context
       setFilterRsud(photo.rsudId);
       setFilterMilestone(photo.milestone);
+      syncFiltersToUrl(photo.rsudId, photo.milestone);
     }
     // If filters were already set, preserve them exactly as-is.
 
     // Defer the server refresh so the optimistic local state is visible first.
     // The useEffect above will sync once the server data arrives.
-    setTimeout(() => router.refresh(), 500);
   };
 
   /**
@@ -133,10 +152,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     <div className={displayMode === 'mobile' ? 'grid gap-3' : 'grid gap-3 sm:grid-cols-2 lg:max-w-xl'}>
       <select
         value={filterRsud}
-        onChange={(event) => {
-          setFilterRsud(event.target.value);
-          setUploadValidationMsg('');
-        }}
+        onChange={(event) => updateRsudFilter(event.target.value)}
         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-[var(--brand)]"
       >
         <option value="">Semua RSUD</option>
@@ -148,10 +164,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
       </select>
       <select
         value={filterMilestone}
-        onChange={(event) => {
-          setFilterMilestone(event.target.value);
-          setUploadValidationMsg('');
-        }}
+        onChange={(event) => updateMilestoneFilter(event.target.value)}
         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-[var(--brand)]"
       >
         <option value="">Semua Milestone</option>
