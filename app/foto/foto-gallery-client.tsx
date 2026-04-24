@@ -9,10 +9,21 @@ import {
   FileText,
   X,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UploadModal } from '@/components/upload-modal';
 import { useDisplayMode } from '@/components/display-mode-context';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { Photo, RSUD, Milestone } from '@/lib/data-model';
 import { MILESTONES } from '@/lib/data-model';
 
@@ -29,6 +40,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
   // Validation toast shown when the user tries to upload without filters set
   const [uploadValidationMsg, setUploadValidationMsg] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [photoPendingDelete, setPhotoPendingDelete] = useState<Photo | null>(null);
   const [filterRsud, setFilterRsud] = useState(defaultRsudFilter ?? '');
   const [filterMilestone, setFilterMilestone] = useState(defaultMilestoneFilter ?? '');
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -66,12 +78,12 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
   };
 
   const handleDelete = async (photo: Photo) => {
-    if (!confirm(`Hapus foto "${photo.name}"?`)) return;
     setDeleting(photo.id);
     try {
       await fetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
       setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
       setSelectedPhoto(null);
+      setPhotoPendingDelete(null);
     } finally {
       setDeleting(null);
     }
@@ -262,15 +274,15 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
         </div>
 
         {selectedPhoto && (
-          <PhotoDetail
-            photo={selectedPhoto}
-            rsudName={getRsudName(selectedPhoto.rsudId)}
-            locationLabel={getLocationLabel(selectedPhoto.location)}
-            deleting={deleting === selectedPhoto.id}
-            onClose={() => setSelectedPhoto(null)}
-            onDelete={() => handleDelete(selectedPhoto)}
-          />
-        )}
+        <PhotoDetail
+          photo={selectedPhoto}
+          rsudName={getRsudName(selectedPhoto.rsudId)}
+          locationLabel={getLocationLabel(selectedPhoto.location)}
+          deleting={deleting === selectedPhoto.id}
+          onClose={() => setSelectedPhoto(null)}
+          onDelete={() => setPhotoPendingDelete(selectedPhoto)}
+        />
+      )}
 
         {showUpload && (
           <UploadModal
@@ -371,7 +383,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
           locationLabel={getLocationLabel(selectedPhoto.location)}
           deleting={deleting === selectedPhoto.id}
           onClose={() => setSelectedPhoto(null)}
-          onDelete={() => handleDelete(selectedPhoto)}
+          onDelete={() => setPhotoPendingDelete(selectedPhoto)}
         />
       )}
 
@@ -384,6 +396,13 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
           onSuccess={handleUploadSuccess}
         />
       )}
+
+      <DeletePhotoDialog
+        photo={photoPendingDelete}
+        deleting={deleting === photoPendingDelete?.id}
+        onCancel={() => setPhotoPendingDelete(null)}
+        onConfirm={() => (photoPendingDelete ? handleDelete(photoPendingDelete) : undefined)}
+      />
     </>
   );
 }
@@ -462,5 +481,63 @@ function PhotoDetail({
         </div>
       </div>
     </div>
+  );
+}
+
+function DeletePhotoDialog({
+  photo,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  photo: Photo | null;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog open={Boolean(photo)} onOpenChange={(open) => (!open ? onCancel() : undefined)}>
+      <AlertDialogContent className="overflow-hidden border-0 bg-[linear-gradient(145deg,#fff7ed_0%,#ffffff_42%,#fee2e2_100%)] p-0 shadow-[0_32px_90px_rgba(15,23,42,0.4)] sm:max-w-lg">
+        <div className="bg-[radial-gradient(circle_at_top_left,#fb7185_0%,#ef4444_28%,#7f1d1d_100%)] px-6 py-6 text-white">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/30 backdrop-blur">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100">Danger Zone</p>
+              <AlertDialogTitle className="mt-2 text-2xl font-bold tracking-tight text-white">
+                Hapus foto dokumentasi?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="mt-2 text-sm leading-6 text-rose-50">
+                Tindakan ini akan menghapus foto dari galeri proyek dan tidak bisa dibatalkan.
+              </AlertDialogDescription>
+            </div>
+          </div>
+        </div>
+
+        <AlertDialogHeader className="px-6 pb-1 pt-5 text-left">
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Foto Yang Akan Dihapus</p>
+            <p className="mt-2 text-base font-semibold text-slate-900">{photo?.milestone ?? '-'}</p>
+            <p className="mt-1 truncate text-sm text-slate-500">{photo?.name ?? 'Foto dokumentasi'}</p>
+          </div>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter className="px-6 pb-6 pt-4 sm:justify-between">
+          <AlertDialogCancel
+            onClick={onCancel}
+            className="mt-0 rounded-2xl border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Batal
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="rounded-2xl bg-[linear-gradient(135deg,#ef4444,#b91c1c)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(239,68,68,0.28)] hover:opacity-95"
+          >
+            {deleting ? 'Menghapus...' : 'Ya, Hapus Foto'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
