@@ -68,7 +68,6 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     try {
       await fetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
       setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
-      router.refresh();
       setSelectedPhoto(null);
     } finally {
       setDeleting(null);
@@ -77,9 +76,11 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
 
   const handleUploadSuccess = (photo: Photo) => {
     setGalleryPhotos((current) => [photo, ...current.filter((item) => item.id !== photo.id)]);
-    setFilterRsud(photo.rsudId);
-    setFilterMilestone(photo.milestone);
-    router.refresh();
+
+    if (!filterRsud && !filterMilestone) {
+      setFilterRsud(photo.rsudId);
+      setFilterMilestone(photo.milestone);
+    }
   };
 
   const filterControls = (
