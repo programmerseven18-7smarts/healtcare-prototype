@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Camera,
   Images,
@@ -24,6 +24,7 @@ interface Props {
 }
 
 export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, defaultMilestoneFilter }: Props) {
+  const [galleryPhotos, setGalleryPhotos] = useState(photos);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [filterRsud, setFilterRsud] = useState(defaultRsudFilter ?? '');
@@ -31,14 +32,21 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
   const { displayMode } = useDisplayMode();
+  const hasActiveFilter = Boolean(filterRsud || filterMilestone);
+
+  useEffect(() => {
+    setGalleryPhotos(photos);
+  }, [photos]);
 
   const filtered = useMemo(() => {
-    return photos.filter((p) => {
+    if (!hasActiveFilter) return [];
+
+    return galleryPhotos.filter((p) => {
       const rsudMatch = !filterRsud || p.rsudId === filterRsud;
       const milestoneMatch = !filterMilestone || p.milestone === filterMilestone;
       return rsudMatch && milestoneMatch;
     });
-  }, [photos, filterRsud, filterMilestone]);
+  }, [galleryPhotos, hasActiveFilter, filterRsud, filterMilestone]);
 
   const getRsudName = (id: string) => rsudList.find((r) => r.id === id)?.name ?? id;
   const getLocationLabel = (location: string) => {
@@ -59,11 +67,19 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     setDeleting(photo.id);
     try {
       await fetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
+      setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
       router.refresh();
       setSelectedPhoto(null);
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleUploadSuccess = (photo: Photo) => {
+    setGalleryPhotos((current) => [photo, ...current.filter((item) => item.id !== photo.id)]);
+    setFilterRsud(photo.rsudId);
+    setFilterMilestone(photo.milestone);
+    router.refresh();
   };
 
   const filterControls = (
@@ -115,7 +131,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-[1.35rem] bg-white/12 p-4 ring-1 ring-white/15 backdrop-blur">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">Ditemukan</p>
-                <p className="mt-2 text-3xl font-bold">{filtered.length}</p>
+                <p className="mt-2 text-3xl font-bold">{hasActiveFilter ? filtered.length : 0}</p>
                 <p className="text-xs text-blue-100">foto</p>
               </div>
               <button
@@ -134,11 +150,19 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             {filterControls}
           </section>
 
-          {filtered.length === 0 ? (
+          {!hasActiveFilter ? (
             <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
               <Images className="h-12 w-12 text-slate-300" />
-              <p className="mt-4 text-base font-semibold text-slate-900">Belum ada foto</p>
-              <p className="mt-2 text-sm text-slate-500">Upload dokumentasi pertama untuk proyek ini.</p>
+              <p className="mt-4 text-base font-semibold text-slate-900">Silakan pilih filter terlebih dahulu</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Pilih RSUD atau milestone untuk menampilkan foto dokumentasi yang sesuai.
+              </p>
+            </section>
+          ) : filtered.length === 0 ? (
+            <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
+              <Images className="h-12 w-12 text-slate-300" />
+              <p className="mt-4 text-base font-semibold text-slate-900">Belum ada foto yang cocok</p>
+              <p className="mt-2 text-sm text-slate-500">Coba ubah filter atau upload dokumentasi baru.</p>
               <button
                 onClick={() => setShowUpload(true)}
                 className="mt-5 rounded-2xl bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white shadow-sm"
@@ -208,7 +232,9 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm text-[var(--text-muted)]">{filtered.length} foto ditemukan</p>
+            <p className="text-sm text-[var(--text-muted)]">
+              {hasActiveFilter ? `${filtered.length} foto ditemukan` : 'Silakan pilih filter untuk menampilkan foto'}
+            </p>
             <div className="mt-3">{filterControls}</div>
           </div>
           <button
@@ -221,10 +247,18 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
         </div>
 
         {/* Grid */}
-        {filtered.length === 0 ? (
+        {!hasActiveFilter ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-color)] py-20 text-center">
+            <Images className="h-12 w-12 text-[var(--text-muted)]" />
+            <p className="text-sm font-medium text-[var(--text-primary)]">Silakan pilih filter terlebih dahulu</p>
+            <p className="max-w-md text-sm text-[var(--text-muted)]">
+              Pilih RSUD atau milestone agar foto dokumentasi yang sesuai bisa ditampilkan.
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-color)] py-20">
             <Images className="h-12 w-12 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-muted)]">Belum ada foto dokumentasi</p>
+            <p className="text-sm text-[var(--text-muted)]">Belum ada foto untuk filter yang dipilih</p>
             <button
               onClick={() => setShowUpload(true)}
               className="mt-1 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
@@ -281,7 +315,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
           defaultRsudId={filterRsud || undefined}
           defaultMilestone={(filterMilestone as Milestone) || undefined}
           onClose={() => setShowUpload(false)}
-          onSuccess={() => router.refresh()}
+          onSuccess={handleUploadSuccess}
         />
       )}
     </>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Milestone, RSUD } from '@/lib/data-model';
+import type { Milestone, Photo, RSUD } from '@/lib/data-model';
 import { useDisplayMode } from './display-mode-context';
 import { DesktopUploadModal } from './desktop-upload-modal';
 import { MobileUploadModal } from './mobile-upload-modal';
@@ -11,7 +11,7 @@ interface UploadModalProps {
   defaultRsudId?: string;
   defaultMilestone?: Milestone;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (photo: Photo) => void;
 }
 
 type Step = 'form' | 'preview' | 'success';
@@ -218,13 +218,13 @@ export function UploadModal({
 
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: form });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? 'Upload gagal');
       }
+      onSuccess(data.photo);
       setStep('success');
       setTimeout(() => {
-        onSuccess();
         onClose();
       }, 1800);
     } catch (e: unknown) {
