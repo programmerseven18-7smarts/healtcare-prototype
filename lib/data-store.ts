@@ -64,6 +64,14 @@ const DEFAULT_DATA: AppData = {
       status: 'Aktif',
       progress: 0,
     },
+    {
+      id: 'rsud-7',
+      name: 'Cibis 9 office',
+      kota: 'Jakarta',
+      provinsi: 'DKI Jakarta',
+      status: 'Aktif',
+      progress: 0,
+    },
   ],
   photos: [],
 };
