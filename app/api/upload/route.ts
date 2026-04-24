@@ -8,6 +8,8 @@ import type { Photo, Milestone } from '@/lib/data-model';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  let uploadStage = 'prepare request';
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest) {
     const blobPath = `uploads/${rsudId}/${milestone}/${timestamp}_${safeName}`;
     let publicUrl: string;
 
+    uploadStage = 'store image';
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(blobPath, file, {
         access: 'public',
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       publicUrl = `/${blobPath}`;
     }
 
+    uploadStage = 'load metadata';
     const data = await loadData();
 
     const photo: Photo = {
@@ -63,11 +67,13 @@ export async function POST(request: NextRequest) {
     };
 
     data.photos.push(photo);
+    uploadStage = 'save metadata';
     await saveData(data);
 
     return NextResponse.json({ success: true, photo });
   } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Upload gagal' }, { status: 500 });
+    console.error('Upload error:', { stage: uploadStage, error });
+    const message = error instanceof Error ? error.message : 'Upload gagal';
+    return NextResponse.json({ error: message, stage: uploadStage }, { status: 500 });
   }
 }
