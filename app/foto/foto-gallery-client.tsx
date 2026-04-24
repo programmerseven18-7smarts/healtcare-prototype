@@ -26,27 +26,30 @@ interface Props {
 export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, defaultMilestoneFilter }: Props) {
   const [galleryPhotos, setGalleryPhotos] = useState(photos);
   const [showUpload, setShowUpload] = useState(false);
+  // Validation toast shown when the user tries to upload without filters set
+  const [uploadValidationMsg, setUploadValidationMsg] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [filterRsud, setFilterRsud] = useState(defaultRsudFilter ?? '');
   const [filterMilestone, setFilterMilestone] = useState(defaultMilestoneFilter ?? '');
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
   const { displayMode } = useDisplayMode();
-  const hasActiveFilter = Boolean(filterRsud || filterMilestone);
+
+  // Both filters must be set for the page to show results
+  const bothFiltersSet = Boolean(filterRsud && filterMilestone);
+  // At least one filter set (used for showing a "filter-mismatch" empty state)
+  const anyFilterSet = Boolean(filterRsud || filterMilestone);
 
   useEffect(() => {
     setGalleryPhotos(photos);
   }, [photos]);
 
   const filtered = useMemo(() => {
-    if (!hasActiveFilter) return [];
-
-    return galleryPhotos.filter((p) => {
-      const rsudMatch = !filterRsud || p.rsudId === filterRsud;
-      const milestoneMatch = !filterMilestone || p.milestone === filterMilestone;
-      return rsudMatch && milestoneMatch;
-    });
-  }, [galleryPhotos, hasActiveFilter, filterRsud, filterMilestone]);
+    if (!bothFiltersSet) return [];
+    return galleryPhotos.filter(
+      (p) => p.rsudId === filterRsud && p.milestone === filterMilestone
+    );
+  }, [galleryPhotos, bothFiltersSet, filterRsud, filterMilestone]);
 
   const getRsudName = (id: string) => rsudList.find((r) => r.id === id)?.name ?? id;
   const getLocationLabel = (location: string) => {
@@ -74,20 +77,54 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     }
   };
 
+  /**
+   * Called when upload succeeds.
+   * - Optimistically prepends the new photo to local state so it appears
+   *   immediately without waiting for a server refresh.
+   * - Does NOT overwrite the active filters the user already had selected.
+   * - Only if no filters were set before upload may it auto-assign filters.
+   * - Triggers router.refresh() after local state is settled so the server
+   *   snapshot eventually catches up without clobbering the optimistic state
+   *   (the useEffect on `photos` will merge the server list in).
+   */
   const handleUploadSuccess = (photo: Photo) => {
     setGalleryPhotos((current) => [photo, ...current.filter((item) => item.id !== photo.id)]);
 
     if (!filterRsud && !filterMilestone) {
+      // No filters were active — auto-navigate to the uploaded photo's context
       setFilterRsud(photo.rsudId);
       setFilterMilestone(photo.milestone);
     }
+    // If filters were already set, preserve them exactly as-is.
+
+    // Defer the server refresh so the optimistic local state is visible first.
+    // The useEffect above will sync once the server data arrives.
+    setTimeout(() => router.refresh(), 500);
+  };
+
+  /**
+   * Guards the upload action: both filters must be selected on the gallery
+   * page before the upload modal may open.
+   */
+  const handleUploadClick = () => {
+    if (!bothFiltersSet) {
+      setUploadValidationMsg(
+        'Please select both RSUD and milestone before uploading a photo.'
+      );
+      return;
+    }
+    setUploadValidationMsg('');
+    setShowUpload(true);
   };
 
   const filterControls = (
     <div className={displayMode === 'mobile' ? 'grid gap-3' : 'grid gap-3 sm:grid-cols-2 lg:max-w-xl'}>
       <select
         value={filterRsud}
-        onChange={(event) => setFilterRsud(event.target.value)}
+        onChange={(event) => {
+          setFilterRsud(event.target.value);
+          setUploadValidationMsg('');
+        }}
         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-[var(--brand)]"
       >
         <option value="">Semua RSUD</option>
@@ -99,7 +136,10 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
       </select>
       <select
         value={filterMilestone}
-        onChange={(event) => setFilterMilestone(event.target.value)}
+        onChange={(event) => {
+          setFilterMilestone(event.target.value);
+          setUploadValidationMsg('');
+        }}
         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-[var(--brand)]"
       >
         <option value="">Semua Milestone</option>
@@ -112,6 +152,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
     </div>
   );
 
+  // ── Mobile layout ──────────────────────────────────────────────────────────
   if (displayMode === 'mobile') {
     return (
       <>
@@ -132,11 +173,11 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-[1.35rem] bg-white/12 p-4 ring-1 ring-white/15 backdrop-blur">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">Ditemukan</p>
-                <p className="mt-2 text-3xl font-bold">{hasActiveFilter ? filtered.length : 0}</p>
+                <p className="mt-2 text-3xl font-bold">{bothFiltersSet ? filtered.length : 0}</p>
                 <p className="text-xs text-blue-100">foto</p>
               </div>
               <button
-                onClick={() => setShowUpload(true)}
+                onClick={handleUploadClick}
                 className="rounded-[1.35rem] bg-white p-4 text-left text-[var(--brand)] shadow-lg"
               >
                 <Camera className="h-5 w-5" />
@@ -149,29 +190,45 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
           <section className="rounded-[1.6rem] bg-white p-4 shadow-sm ring-1 ring-slate-200">
             <p className="mb-3 text-sm font-semibold text-slate-900">Filter Dokumentasi</p>
             {filterControls}
+            {uploadValidationMsg && (
+              <p className="mt-2 text-xs font-medium text-red-600">{uploadValidationMsg}</p>
+            )}
           </section>
 
-          {!hasActiveFilter ? (
+          {/* Empty states & results */}
+          {!anyFilterSet ? (
+            // Neither filter selected — prompt user to pick both
             <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
               <Images className="h-12 w-12 text-slate-300" />
-              <p className="mt-4 text-base font-semibold text-slate-900">Silakan pilih filter terlebih dahulu</p>
+              <p className="mt-4 text-base font-semibold text-slate-900">Please select filters first</p>
               <p className="mt-2 text-sm text-slate-500">
-                Pilih RSUD atau milestone untuk menampilkan foto dokumentasi yang sesuai.
+                Select an RSUD and milestone to display the matching photo documentation.
+              </p>
+            </section>
+          ) : !bothFiltersSet ? (
+            // Only one filter selected — remind user to set the other
+            <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
+              <Images className="h-12 w-12 text-slate-300" />
+              <p className="mt-4 text-base font-semibold text-slate-900">Please select filters first</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Select an RSUD and milestone to display the matching photo documentation.
               </p>
             </section>
           ) : filtered.length === 0 ? (
+            // Both filters set but no matching photos
             <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
               <Images className="h-12 w-12 text-slate-300" />
-              <p className="mt-4 text-base font-semibold text-slate-900">Belum ada foto yang cocok</p>
+              <p className="mt-4 text-base font-semibold text-slate-900">No matching photos found</p>
               <p className="mt-2 text-sm text-slate-500">Coba ubah filter atau upload dokumentasi baru.</p>
               <button
-                onClick={() => setShowUpload(true)}
+                onClick={handleUploadClick}
                 className="mt-5 rounded-2xl bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white shadow-sm"
               >
                 Upload Foto Pertama
               </button>
             </section>
           ) : (
+            // Results
             <div className="space-y-4">
               {filtered.map((photo) => (
                 <button
@@ -221,25 +278,31 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             defaultRsudId={filterRsud || undefined}
             defaultMilestone={(filterMilestone as Milestone) || undefined}
             onClose={() => setShowUpload(false)}
-            onSuccess={() => router.refresh()}
+            onSuccess={handleUploadSuccess}
           />
         )}
       </>
     );
   }
 
+  // ── Desktop layout ─────────────────────────────────────────────────────────
   return (
     <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-[var(--text-muted)]">
-              {hasActiveFilter ? `${filtered.length} foto ditemukan` : 'Silakan pilih filter untuk menampilkan foto'}
+              {bothFiltersSet
+                ? `${filtered.length} foto ditemukan`
+                : 'Silakan pilih RSUD dan milestone untuk menampilkan foto'}
             </p>
             <div className="mt-3">{filterControls}</div>
+            {uploadValidationMsg && (
+              <p className="mt-2 text-xs font-medium text-red-600">{uploadValidationMsg}</p>
+            )}
           </div>
           <button
-            onClick={() => setShowUpload(true)}
+            onClick={handleUploadClick}
             className="flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white shadow hover:opacity-90 transition"
           >
             <Camera className="h-4 w-4" />
@@ -247,21 +310,23 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
           </button>
         </div>
 
-        {/* Grid */}
-        {!hasActiveFilter ? (
+        {/* Grid / empty states */}
+        {!bothFiltersSet ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-color)] py-20 text-center">
             <Images className="h-12 w-12 text-[var(--text-muted)]" />
-            <p className="text-sm font-medium text-[var(--text-primary)]">Silakan pilih filter terlebih dahulu</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">Please select filters first</p>
             <p className="max-w-md text-sm text-[var(--text-muted)]">
-              Pilih RSUD atau milestone agar foto dokumentasi yang sesuai bisa ditampilkan.
+              Select an RSUD and milestone to display the matching photo documentation.
             </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-color)] py-20">
             <Images className="h-12 w-12 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-muted)]">Belum ada foto untuk filter yang dipilih</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">
+              No photos found for the selected filters
+            </p>
             <button
-              onClick={() => setShowUpload(true)}
+              onClick={handleUploadClick}
               className="mt-1 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
             >
               Upload Foto Pertama

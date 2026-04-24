@@ -1,12 +1,18 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { get, list, put } from '@vercel/blob';
+import { list, put } from '@vercel/blob';
 import type { AppData } from './data-model';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE_PATH = path.join(DATA_DIR, 'app-data.json');
-const BLOB_DATA_PATH = 'data/app-data.json';
-const BLOB_DATA_PREFIX = 'data/app-data-';
+
+/**
+ * Versioned prefix for metadata blobs.
+ * Each save writes a NEW blob with a timestamp suffix so no blob is ever
+ * overwritten. loadData() always lists and picks the most-recently uploaded
+ * one, guaranteeing a fresh read regardless of CDN caching on any fixed path.
+ */
+const BLOB_DATA_PREFIX = 'data/meta/app-data-';
 
 const DEFAULT_DATA: AppData = {
   rsudList: [
@@ -57,17 +63,29 @@ const DEFAULT_DATA: AppData = {
 export async function loadData(): Promise<AppData> {
   if (hasBlobToken()) {
     try {
-      const latestBlobPath = await resolveLatestBlobDataPath();
-      const blob = await get(latestBlobPath, { access: 'public' });
-      if (blob?.statusCode === 200) {
-        const raw = await streamToText(blob.stream);
-        return mergeDefaultData(JSON.parse(raw) as AppData);
+      // List ALL versioned metadata blobs and pick the newest one.
+      // Because each save writes to a unique timestamped path, no Vercel
+      // edge/CDN caches an older version at the same URL, so we always get
+      // the true latest snapshot.
+      const latestUrl = await resolveLatestBlobUrl();
+      if (latestUrl) {
+        // Append a cache-busting query param so even if the HTTP client or
+        // a proxy has cached the URL body we force a fresh fetch.
+        const res = await fetch(`${latestUrl}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+        if (res.ok) {
+          const raw = await res.text();
+          return mergeDefaultData(JSON.parse(raw) as AppData);
+        }
       }
     } catch (error) {
       console.error('Blob data load error:', error);
     }
   }
 
+  // Fallback: local filesystem (dev environment)
   try {
     const raw = await readFile(DATA_FILE_PATH, 'utf8');
     return mergeDefaultData(JSON.parse(raw) as AppData);
@@ -78,28 +96,44 @@ export async function loadData(): Promise<AppData> {
 
 export async function saveData(data: AppData): Promise<void> {
   if (hasBlobToken()) {
-    await put(`${BLOB_DATA_PREFIX}${Date.now()}.json`, JSON.stringify(data, null, 2), {
+    // Write to a unique path so the URL is never reused and therefore never
+    // served stale from any CDN cache layer.
+    const uniquePath = `${BLOB_DATA_PREFIX}${Date.now()}.json`;
+    await put(uniquePath, JSON.stringify(data, null, 2), {
       access: 'public',
       contentType: 'application/json',
+      // addRandomSuffix: false — we already have a millisecond-unique name
+      addRandomSuffix: false,
     });
     return;
   }
 
+  // Fallback: local filesystem (dev environment)
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
 }
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 function hasBlobToken() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-async function resolveLatestBlobDataPath() {
+/**
+ * Lists all versioned metadata blobs and returns the public URL of the most
+ * recently uploaded one, or null if none exist yet.
+ */
+async function resolveLatestBlobUrl(): Promise<string | null> {
   const { blobs } = await list({ prefix: BLOB_DATA_PREFIX, limit: 1000 });
-  const latestVersion = blobs
-    .filter((blob) => blob.pathname.startsWith(BLOB_DATA_PREFIX))
-    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  if (blobs.length === 0) return null;
 
-  return latestVersion?.pathname ?? BLOB_DATA_PATH;
+  const latest = blobs.sort(
+    (a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime()
+  )[0];
+
+  return latest.url;
 }
 
 function createDefaultData(): AppData {
@@ -121,19 +155,4 @@ function mergeDefaultData(data: AppData): AppData {
   }
 
   return merged;
-}
-
-async function streamToText(stream: ReadableStream<Uint8Array>) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    result += decoder.decode(value, { stream: true });
-  }
-
-  result += decoder.decode();
-  return result;
 }
