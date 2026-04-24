@@ -1,11 +1,13 @@
 export type Milestone =
   | 'Site Preparation'
+  | 'Material on Site ( CDD )'
   | 'Installation'
   | 'Training'
   | 'Commissioning';
 
 export const MILESTONES: Milestone[] = [
   'Site Preparation',
+  'Material on Site ( CDD )',
   'Installation',
   'Training',
   'Commissioning',

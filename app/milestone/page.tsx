@@ -1,5 +1,15 @@
 import Link from 'next/link';
-import { CheckCircle2, Clock, Images } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  GraduationCap,
+  Images,
+  PackageCheck,
+  Settings,
+  ShieldCheck,
+  TowerControl,
+  type LucideIcon,
+} from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
 import { loadData } from '@/lib/data-store';
 import { MILESTONES, type Milestone } from '@/lib/data-model';
@@ -7,18 +17,28 @@ import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-const MILESTONE_ICONS: Record<Milestone, string> = {
-  'Site Preparation': '🏗️',
-  'Installation': '⚙️',
-  'Training': '🎓',
-  'Commissioning': '✅',
+const MILESTONE_ICONS: Record<Milestone, LucideIcon> = {
+  'Site Preparation': TowerControl,
+  'Material on Site ( CDD )': PackageCheck,
+  'Installation': Settings,
+  'Training': GraduationCap,
+  'Commissioning': ShieldCheck,
 };
 
 const MILESTONE_DESC: Record<Milestone, string> = {
   'Site Preparation': 'Persiapan lokasi, pembersihan area, dan setup infrastruktur dasar',
+  'Material on Site ( CDD )': 'Material dan perangkat utama sudah tiba di lokasi proyek',
   'Installation': 'Pemasangan peralatan medis dan sistem pendukung',
   'Training': 'Pelatihan staf dan operator sistem',
   'Commissioning': 'Pengujian akhir dan serah terima sistem',
+};
+
+const MILESTONE_THRESHOLDS: Record<Milestone, number> = {
+  'Site Preparation': 25,
+  'Material on Site ( CDD )': 40,
+  'Installation': 50,
+  'Training': 75,
+  'Commissioning': 100,
 };
 
 export default async function MilestonePage() {
@@ -29,24 +49,19 @@ export default async function MilestonePage() {
       <div className="space-y-6">
         {MILESTONES.map((milestone) => {
           const milestonePhotos = photos.filter((p) => p.milestone === milestone);
-          const rsudWithMilestone = rsudList.filter((r) => {
-            const thresholds: Record<Milestone, number> = {
-              'Site Preparation': 25,
-              'Installation': 50,
-              'Training': 75,
-              'Commissioning': 100,
-            };
-            return r.progress >= thresholds[milestone];
-          });
+          const rsudWithMilestone = rsudList.filter(
+            (r) => r.progress >= MILESTONE_THRESHOLDS[milestone]
+          );
+          const MilestoneIcon = MILESTONE_ICONS[milestone];
 
           return (
-            <div key={milestone} className="rounded-xl border border-[var(--border-color)] bg-white shadow-sm overflow-hidden">
+            <div key={milestone} className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-white shadow-sm">
               <div className="flex items-start gap-4 p-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-2xl shrink-0">
-                  {MILESTONE_ICONS[milestone]}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[var(--brand)]">
+                  <MilestoneIcon className="h-6 w-6" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-semibold text-[var(--text-primary)]">{milestone}</h3>
                     <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-[var(--brand)]">
                       {milestonePhotos.length} foto
@@ -67,8 +82,7 @@ export default async function MilestonePage() {
                 </div>
               </div>
 
-              {/* Per-RSUD milestone rows */}
-              <div className="border-t border-[var(--border-color)] divide-y divide-[var(--border-color)]">
+              <div className="divide-y divide-[var(--border-color)] border-t border-[var(--border-color)]">
                 {rsudList.slice(0, 3).map((rsud) => {
                   const rsudMilestonePhotos = photos.filter(
                     (p) => p.rsudId === rsud.id && p.milestone === milestone

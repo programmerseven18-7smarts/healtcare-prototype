@@ -56,6 +56,14 @@ const DEFAULT_DATA: AppData = {
       status: 'Aktif',
       progress: 55,
     },
+    {
+      id: 'rsud-6',
+      name: 'RSUD Bhakti Dharma Husada',
+      kota: 'Surabaya',
+      provinsi: 'Jawa Timur',
+      status: 'Aktif',
+      progress: 0,
+    },
   ],
   photos: [],
 };

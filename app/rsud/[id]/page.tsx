@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const MILESTONE_PROGRESS: Record<Milestone, number> = {
   'Site Preparation': 25,
+  'Material on Site ( CDD )': 40,
   'Installation': 50,
   'Training': 75,
   'Commissioning': 100,
