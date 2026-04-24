@@ -48,21 +48,24 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
   const pathname = usePathname();
   const { displayMode } = useDisplayMode();
 
-  // Both filters must be set for the page to show results
-  const bothFiltersSet = Boolean(filterRsud && filterMilestone);
-  // At least one filter set (used for showing a "filter-mismatch" empty state)
+  const hasRsudFilter = Boolean(filterRsud);
+  const hasMilestoneFilter = Boolean(filterMilestone);
   const anyFilterSet = Boolean(filterRsud || filterMilestone);
+  const uploadFiltersReady = Boolean(filterRsud && filterMilestone);
 
   useEffect(() => {
     setGalleryPhotos(photos);
   }, [photos]);
 
   const filtered = useMemo(() => {
-    if (!bothFiltersSet) return [];
-    return galleryPhotos.filter(
-      (p) => p.rsudId === filterRsud && p.milestone === filterMilestone
-    );
-  }, [galleryPhotos, bothFiltersSet, filterRsud, filterMilestone]);
+    if (!anyFilterSet) return [];
+
+    return galleryPhotos.filter((photo) => {
+      const matchesRsud = !hasRsudFilter || photo.rsudId === filterRsud;
+      const matchesMilestone = !hasMilestoneFilter || photo.milestone === filterMilestone;
+      return matchesRsud && matchesMilestone;
+    });
+  }, [anyFilterSet, galleryPhotos, hasMilestoneFilter, hasRsudFilter, filterMilestone, filterRsud]);
 
   const getRsudName = (id: string) => rsudList.find((r) => r.id === id)?.name ?? id;
   const getLocationLabel = (location: string) => {
@@ -138,7 +141,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
    * page before the upload modal may open.
    */
   const handleUploadClick = () => {
-    if (!bothFiltersSet) {
+    if (!uploadFiltersReady) {
       setUploadValidationMsg(
         'Please select both RSUD and milestone before uploading a photo.'
       );
@@ -198,7 +201,7 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-[1.35rem] bg-white/12 p-4 ring-1 ring-white/15 backdrop-blur">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">Ditemukan</p>
-                <p className="mt-2 text-3xl font-bold">{bothFiltersSet ? filtered.length : 0}</p>
+                <p className="mt-2 text-3xl font-bold">{anyFilterSet ? filtered.length : 0}</p>
                 <p className="text-xs text-blue-100">foto</p>
               </div>
               <button
@@ -227,10 +230,10 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
               <Images className="h-12 w-12 text-slate-300" />
               <p className="mt-4 text-base font-semibold text-slate-900">Please select filters first</p>
               <p className="mt-2 text-sm text-slate-500">
-                Select an RSUD and milestone to display the matching photo documentation.
+                Select an RSUD or milestone to display the matching photo documentation.
               </p>
             </section>
-          ) : !bothFiltersSet ? (
+          ) : false ? (
             // Only one filter selected — remind user to set the other
             <section className="flex flex-col items-center justify-center rounded-[1.7rem] border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
               <Images className="h-12 w-12 text-slate-300" />
@@ -324,9 +327,9 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-[var(--text-muted)]">
-              {bothFiltersSet
+              {anyFilterSet
                 ? `${filtered.length} foto ditemukan`
-                : 'Silakan pilih RSUD dan milestone untuk menampilkan foto'}
+                : 'Silakan pilih RSUD atau milestone untuk menampilkan foto'}
             </p>
             <div className="mt-3">{filterControls}</div>
             {uploadValidationMsg && (
@@ -343,12 +346,12 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
         </div>
 
         {/* Grid / empty states */}
-        {!bothFiltersSet ? (
+        {!anyFilterSet ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-color)] py-20 text-center">
             <Images className="h-12 w-12 text-[var(--text-muted)]" />
             <p className="text-sm font-medium text-[var(--text-primary)]">Please select filters first</p>
             <p className="max-w-md text-sm text-[var(--text-muted)]">
-              Select an RSUD and milestone to display the matching photo documentation.
+              Select an RSUD or milestone to display the matching photo documentation.
             </p>
           </div>
         ) : filtered.length === 0 ? (
