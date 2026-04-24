@@ -56,7 +56,7 @@ const DEFAULT_DATA: AppData = {
 export async function loadData(): Promise<AppData> {
   if (hasBlobToken()) {
     try {
-      const blob = await get(BLOB_DATA_PATH, { access: 'public', useCache: false });
+      const blob = await get(BLOB_DATA_PATH, { access: 'private', useCache: false });
       if (blob?.statusCode === 200) {
         const raw = await streamToText(blob.stream);
         return mergeDefaultData(JSON.parse(raw) as AppData);
@@ -77,7 +77,7 @@ export async function loadData(): Promise<AppData> {
 export async function saveData(data: AppData): Promise<void> {
   if (hasBlobToken()) {
     await put(BLOB_DATA_PATH, JSON.stringify(data, null, 2), {
-      access: 'public',
+      access: 'private',
       allowOverwrite: true,
       contentType: 'application/json',
     });
