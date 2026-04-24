@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { get, put } from '@vercel/blob';
+import { get, list, put } from '@vercel/blob';
 import type { AppData } from './data-model';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE_PATH = path.join(DATA_DIR, 'app-data.json');
 const BLOB_DATA_PATH = 'data/app-data.json';
+const BLOB_DATA_PREFIX = 'data/app-data-';
 
 const DEFAULT_DATA: AppData = {
   rsudList: [
@@ -56,7 +57,8 @@ const DEFAULT_DATA: AppData = {
 export async function loadData(): Promise<AppData> {
   if (hasBlobToken()) {
     try {
-      const blob = await get(BLOB_DATA_PATH, { access: 'private', useCache: false });
+      const latestBlobPath = await resolveLatestBlobDataPath();
+      const blob = await get(latestBlobPath, { access: 'public' });
       if (blob?.statusCode === 200) {
         const raw = await streamToText(blob.stream);
         return mergeDefaultData(JSON.parse(raw) as AppData);
@@ -76,9 +78,8 @@ export async function loadData(): Promise<AppData> {
 
 export async function saveData(data: AppData): Promise<void> {
   if (hasBlobToken()) {
-    await put(BLOB_DATA_PATH, JSON.stringify(data, null, 2), {
-      access: 'private',
-      allowOverwrite: true,
+    await put(`${BLOB_DATA_PREFIX}${Date.now()}.json`, JSON.stringify(data, null, 2), {
+      access: 'public',
       contentType: 'application/json',
     });
     return;
@@ -90,6 +91,15 @@ export async function saveData(data: AppData): Promise<void> {
 
 function hasBlobToken() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+async function resolveLatestBlobDataPath() {
+  const { blobs } = await list({ prefix: BLOB_DATA_PREFIX, limit: 1000 });
+  const latestVersion = blobs
+    .filter((blob) => blob.pathname.startsWith(BLOB_DATA_PREFIX))
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+
+  return latestVersion?.pathname ?? BLOB_DATA_PATH;
 }
 
 function createDefaultData(): AppData {
