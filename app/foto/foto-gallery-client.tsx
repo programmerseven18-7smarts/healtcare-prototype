@@ -274,15 +274,15 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
         </div>
 
         {selectedPhoto && (
-        <PhotoDetail
-          photo={selectedPhoto}
-          rsudName={getRsudName(selectedPhoto.rsudId)}
-          locationLabel={getLocationLabel(selectedPhoto.location)}
-          deleting={deleting === selectedPhoto.id}
-          onClose={() => setSelectedPhoto(null)}
-          onDelete={() => setPhotoPendingDelete(selectedPhoto)}
-        />
-      )}
+          <PhotoDetail
+            photo={selectedPhoto}
+            rsudName={getRsudName(selectedPhoto.rsudId)}
+            locationLabel={getLocationLabel(selectedPhoto.location)}
+            deleting={deleting === selectedPhoto.id}
+            onClose={() => setSelectedPhoto(null)}
+            onDelete={() => setPhotoPendingDelete(selectedPhoto)}
+          />
+        )}
 
         {showUpload && (
           <UploadModal
@@ -293,6 +293,13 @@ export function FotoGalleryClient({ photos, rsudList, defaultRsudFilter, default
             onSuccess={handleUploadSuccess}
           />
         )}
+
+        <DeletePhotoDialog
+          photo={photoPendingDelete}
+          deleting={deleting === photoPendingDelete?.id}
+          onCancel={() => setPhotoPendingDelete(null)}
+          onConfirm={() => (photoPendingDelete ? handleDelete(photoPendingDelete) : undefined)}
+        />
       </>
     );
   }
